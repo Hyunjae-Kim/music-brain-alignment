@@ -1,0 +1,32 @@
+{
+  "dataset_name": "VocalSet",
+  "task_name": "singing_technique",
+  "target_type": "single_label_classification",
+  "label_vocabulary": [
+    "belt",
+    "breathy",
+    "fast_forte",
+    "fast_piano",
+    "forte",
+    "inhaled",
+    "lip_trill",
+    "messa",
+    "pp",
+    "slow_forte",
+    "slow_piano",
+    "spoken",
+    "straight",
+    "trill",
+    "trillo",
+    "vibrado",
+    "vibrato",
+    "vocal_fry"
+  ],
+  "target_names": [],
+  "num_examples": 3649,
+  "metadata": {
+    "audio_root": "/home/hjkim/selective_auditory/ismir2026/dataset/music_dataset/VocalSet/audio",
+    "partitioning": "deterministic_stratified_kfold",
+    "num_folds": 5
+  }
+}

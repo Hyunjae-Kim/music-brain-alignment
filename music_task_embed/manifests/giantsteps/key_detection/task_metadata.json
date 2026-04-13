@@ -1,0 +1,38 @@
+{
+  "dataset_name": "GiantSteps",
+  "task_name": "key_detection",
+  "target_type": "single_label_classification",
+  "label_vocabulary": [
+    "A major",
+    "A minor",
+    "Ab major",
+    "Ab minor",
+    "B major",
+    "B minor",
+    "Bb major",
+    "Bb minor",
+    "C major",
+    "C minor",
+    "D major",
+    "D minor",
+    "Db major",
+    "Db minor",
+    "E major",
+    "E minor",
+    "Eb major",
+    "Eb minor",
+    "F major",
+    "F minor",
+    "G major",
+    "G minor",
+    "Gb major",
+    "Gb minor"
+  ],
+  "target_names": [],
+  "num_examples": 7035,
+  "metadata": {
+    "source": "m-a-p/GS",
+    "audio_root": "/home/hjkim/selective_auditory/ismir2026/dataset/music_dataset/GiantSteps/giantsteps_clips/wav",
+    "partitioning": "official_train_valid_test"
+  }
+}

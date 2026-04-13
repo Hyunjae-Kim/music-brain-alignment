@@ -1,0 +1,28 @@
+# Python
+*.egg-info/
+.venv/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+logs/
+*.log
+
+# Local caches
+music_task_embed/.hf_cache/
+
+# Large local datasets / artifacts
+dataset/music_dataset/
+dataset/tuckute2023/tuckute2023_data.tar
+music_task_embed/embeddings/
+music_task_embed/model_cache/
+natural_sound_align/embeddings/
+
+# OS/editor
+.DS_Store
+.codex
+.vscode/
+_memo
+Yuan\ et\ al_MARBLE\ Music\ Audio\ Representation\ Benchmark\ for\ Universal\ Evaluation.pdf

@@ -1,0 +1,24 @@
+{
+  "dataset_name": "GTZAN",
+  "task_name": "genre_classification",
+  "target_type": "single_label_classification",
+  "label_vocabulary": [
+    "blues",
+    "classical",
+    "country",
+    "disco",
+    "hiphop",
+    "jazz",
+    "metal",
+    "pop",
+    "reggae",
+    "rock"
+  ],
+  "target_names": [],
+  "num_examples": 930,
+  "metadata": {
+    "source": "confit/gtzan-parquet",
+    "audio_root": "/home/hjkim/selective_auditory/ismir2026/dataset/music_dataset/GTZAN/audio",
+    "partitioning": "huggingface_splits"
+  }
+}
