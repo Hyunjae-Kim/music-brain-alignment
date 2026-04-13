@@ -22,8 +22,8 @@ DEFAULT_DATA_ROOT = CURRENT_DATA_ROOT
 DEFAULT_MANIFEST_ROOT = PACKAGE_ROOT / "manifests"
 DEFAULT_CACHE_ROOT = PACKAGE_ROOT / ".hf_cache"
 DEFAULT_CMI_VOCALSET_SPLITS = PACKAGE_ROOT / "cmi_manifests" / "vocalset"
-DEFAULT_MTG_ROOT = DEFAULT_DATA_ROOT / "MTG" / "mtg-jamendo-dataset"
-DEFAULT_MTG_AUDIO_ROOT = DEFAULT_DATA_ROOT / "MTG" / "raw_30s" / "audio-low"
+DEFAULT_MTG_ROOT = DEFAULT_DATA_ROOT / "mtg-jamendo-dataset"
+DEFAULT_MTG_AUDIO_ROOT = DEFAULT_DATA_ROOT / "raw_30s" / "audio-low"
 
 MTG_GITHUB_SPLIT_BASE = (
     "https://raw.githubusercontent.com/MTG/mtg-jamendo-dataset/master/data/splits/split-0"
@@ -347,7 +347,7 @@ def prepare_mtg_split_metadata(
     *,
     data_root: Path,
 ) -> dict[str, dict[str, Path]]:
-    split_root = data_root / "MTG" / "mtg-jamendo-dataset" / "data" / "splits" / "split-0"
+    split_root = data_root / "mtg-jamendo-dataset" / "data" / "splits" / "split-0"
     split_root.mkdir(parents=True, exist_ok=True)
 
     prepared: dict[str, dict[str, Path]] = {}

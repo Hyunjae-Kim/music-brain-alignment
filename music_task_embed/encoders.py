@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import time
 from pathlib import Path
 import shutil
 from typing import Any
@@ -47,6 +48,46 @@ SUPPORTED_MODEL_NAMES = (
     "musicgen_large",
     "musicgen_melody_large",
 )
+
+_LOG_EVERY = int(os.getenv("EMBED_LOG_EVERY", "0"))
+
+
+def _format_gpu_usage(device: torch.device) -> str:
+    if device.type != "cuda":
+        return ""
+    try:
+        index = device.index if device.index is not None else torch.cuda.current_device()
+        allocated = torch.cuda.memory_allocated(index) / (1024 ** 3)
+        reserved = torch.cuda.memory_reserved(index) / (1024 ** 3)
+        return f" gpu={index} mem={allocated:.2f}G/{reserved:.2f}G"
+    except Exception:
+        return " gpu=unknown"
+
+
+def _maybe_log_progress(
+    *,
+    model_name: str,
+    device: torch.device,
+    batch_index: int,
+    total_batches: int,
+    total_items: int,
+    batch_size: int,
+    start_time: float,
+) -> None:
+    if _LOG_EVERY <= 0:
+        return
+    if batch_index % _LOG_EVERY != 0 and batch_index != total_batches:
+        return
+    elapsed = max(time.time() - start_time, 1e-6)
+    done = min(batch_index * batch_size, total_items)
+    rate = done / elapsed
+    gpu_text = _format_gpu_usage(device)
+    print(
+        f"[embed] {model_name} {done}/{total_items} "
+        f"(batch {batch_index}/{total_batches}) "
+        f"{rate:.2f} items/s{gpu_text}",
+        flush=True,
+    )
 
 
 def resolve_device(device: str) -> torch.device:
@@ -211,9 +252,18 @@ class ClapExtractor:
     def extract(self, audio_paths: list[str], batch_size: int, include_layers: bool = False) -> ExtractorResult:
         final_rows: list[np.ndarray] = []
         layer_rows: dict[str, list[np.ndarray]] = {}
+        total_items = len(audio_paths)
+        total_batches = (total_items + batch_size - 1) // batch_size
+        start_time = time.time()
+        if _LOG_EVERY > 0:
+            print(
+                f"[embed] start {self.model_name} device={self.device} "
+                f"items={total_items} batch={batch_size} include_layers={include_layers}",
+                flush=True,
+            )
 
         with torch.inference_mode():
-            for start in range(0, len(audio_paths), batch_size):
+            for batch_index, start in enumerate(range(0, len(audio_paths), batch_size), start=1):
                 batch_paths = audio_paths[start : start + batch_size]
                 waveforms = [load_waveform(path, self.sample_rate) for path in batch_paths]
                 inputs = self.feature_extractor(
@@ -245,6 +295,15 @@ class ClapExtractor:
                         layer_rows.setdefault(f"layer_{layer_index:02d}", []).append(
                             pooled.detach().cpu().numpy().astype(np.float32, copy=False)
                         )
+                _maybe_log_progress(
+                    model_name=self.model_name,
+                    device=self.device,
+                    batch_index=batch_index,
+                    total_batches=total_batches,
+                    total_items=total_items,
+                    batch_size=batch_size,
+                    start_time=start_time,
+                )
 
         final_matrix = np.concatenate(final_rows, axis=0)
         return ExtractorResult(
@@ -320,8 +379,17 @@ class MulanExtractor:
         layer_rows: dict[str, list[np.ndarray]] = {}
         use_parallel = self.device.type == "cuda"
         batch_size = max(int(batch_size), 1)
+        total_items = len(audio_paths)
+        total_batches = (total_items + batch_size - 1) // batch_size
+        start_time = time.time()
+        if _LOG_EVERY > 0:
+            print(
+                f"[embed] start {self.model_name} device={self.device} "
+                f"items={total_items} batch={batch_size} include_layers={include_layers}",
+                flush=True,
+            )
 
-        for start in range(0, len(audio_paths), batch_size):
+        for batch_index, start in enumerate(range(0, len(audio_paths), batch_size), start=1):
             batch_paths = audio_paths[start : start + batch_size]
 
             if include_layers:
@@ -338,6 +406,15 @@ class MulanExtractor:
                         layer_rows.setdefault(f"layer_{layer_index:02d}", []).append(
                             pooled.detach().cpu().numpy()[0].astype(np.float32, copy=False)
                         )
+                _maybe_log_progress(
+                    model_name=self.model_name,
+                    device=self.device,
+                    batch_index=batch_index,
+                    total_batches=total_batches,
+                    total_items=total_items,
+                    batch_size=batch_size,
+                    start_time=start_time,
+                )
                 continue
 
             clip_batches: list[torch.Tensor] = []
@@ -357,6 +434,15 @@ class MulanExtractor:
                 pooled = clip_embeddings[offset : offset + clip_count].mean(dim=0)
                 embeddings.append(pooled.detach().cpu().numpy().astype(np.float32, copy=False))
                 offset += clip_count
+            _maybe_log_progress(
+                model_name=self.model_name,
+                device=self.device,
+                batch_index=batch_index,
+                total_batches=total_batches,
+                total_items=total_items,
+                batch_size=batch_size,
+                start_time=start_time,
+            )
 
         return ExtractorResult(
             final_name="final",
@@ -482,8 +568,17 @@ class MertExtractor:
     def extract(self, audio_paths: list[str], batch_size: int, include_layers: bool = False) -> ExtractorResult:
         embeddings: list[np.ndarray] = []
         layer_rows: dict[str, list[np.ndarray]] = {}
+        total_items = len(audio_paths)
+        total_batches = (total_items + batch_size - 1) // batch_size
+        start_time = time.time()
+        if _LOG_EVERY > 0:
+            print(
+                f"[embed] start {self.model_name} device={self.device} "
+                f"items={total_items} batch={batch_size} include_layers={include_layers}",
+                flush=True,
+            )
 
-        for start in range(0, len(audio_paths), batch_size):
+        for batch_index, start in enumerate(range(0, len(audio_paths), batch_size), start=1):
             batch_paths = audio_paths[start : start + batch_size]
             audio_batch = [load_waveform(path, target_sample_rate=self.sample_rate) for path in batch_paths]
             inputs = self.processor(
@@ -506,6 +601,15 @@ class MertExtractor:
                     layer_rows.setdefault(f"layer_{layer_index:02d}", []).append(
                         pooled.detach().cpu().numpy().astype(np.float32, copy=False)
                     )
+            _maybe_log_progress(
+                model_name=self.model_name,
+                device=self.device,
+                batch_index=batch_index,
+                total_batches=total_batches,
+                total_items=total_items,
+                batch_size=batch_size,
+                start_time=start_time,
+            )
 
         return ExtractorResult(
             final_name=self.final_representation_name,
@@ -794,8 +898,17 @@ class MusicGenExtractor:
     def extract(self, audio_paths: list[str], batch_size: int, include_layers: bool = False) -> ExtractorResult:
         final_rows: list[np.ndarray] = []
         layer_rows: dict[str, list[np.ndarray]] = {}
+        total_items = len(audio_paths)
+        total_batches = (total_items + batch_size - 1) // batch_size
+        start_time = time.time()
+        if _LOG_EVERY > 0:
+            print(
+                f"[embed] start {self.model_name} device={self.device} "
+                f"items={total_items} batch={batch_size} include_layers={include_layers}",
+                flush=True,
+            )
 
-        for start in range(0, len(audio_paths), batch_size):
+        for batch_index, start in enumerate(range(0, len(audio_paths), batch_size), start=1):
             batch_paths = audio_paths[start : start + batch_size]
             waveforms = [load_waveform(path, target_sample_rate=self.sample_rate) for path in batch_paths]
             batch_final, batch_layers = self.extract_decoder_hidden_states(waveforms)
@@ -803,6 +916,15 @@ class MusicGenExtractor:
             if include_layers:
                 for layer_name, layer_matrix in batch_layers.items():
                     layer_rows.setdefault(layer_name, []).append(layer_matrix)
+            _maybe_log_progress(
+                model_name=self.model_name,
+                device=self.device,
+                batch_index=batch_index,
+                total_batches=total_batches,
+                total_items=total_items,
+                batch_size=batch_size,
+                start_time=start_time,
+            )
 
         return ExtractorResult(
             final_name="final",
