@@ -31,6 +31,7 @@ DEFAULT_CLAP_MUSIC_SPEECH_MODEL_ID = "laion/larger_clap_music_and_speech"
 DEFAULT_MULAN_MODEL_ID = "OpenMuQ/MuQ-MuLan-large"
 DEFAULT_MERT_MODEL_ID = "m-a-p/MERT-v1-330M"
 DEFAULT_MERT95_MODEL_ID = "m-a-p/MERT-v1-95M"
+DEFAULT_WAV2VEC2_MODEL_ID = "facebook/wav2vec2-base-960h"
 DEFAULT_MUSICGEN_SMALL_MODEL_ID = "facebook/musicgen-small"
 DEFAULT_MUSICGEN_MEDIUM_MODEL_ID = "facebook/musicgen-medium"
 DEFAULT_MUSICGEN_LARGE_MODEL_ID = "facebook/musicgen-large"
@@ -43,6 +44,7 @@ SUPPORTED_MODEL_NAMES = (
     "mulan",
     "mert",
     "mert95",
+    "wav2vec2",
     "musicgen_small",
     "musicgen_medium",
     "musicgen_large",
@@ -627,6 +629,110 @@ class MertExtractor:
         return names
 
 
+class Wav2Vec2Extractor:
+    def __init__(
+        self,
+        *,
+        model_id: str = DEFAULT_WAV2VEC2_MODEL_ID,
+        device: torch.device,
+        cache_dir: str | None = None,
+        local_files_only: bool = False,
+        final_representation_name: str = "final",
+    ) -> None:
+        self.model_name = "wav2vec2"
+        self.model_id = model_id
+        self.device = device
+        self.final_representation_name = final_representation_name
+        self.processor = Wav2Vec2FeatureExtractor.from_pretrained(
+            model_id,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+        )
+        self.model = AutoModel.from_pretrained(
+            model_id,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+        )
+        self.model.to(self.device)
+        self.model.eval()
+        self.sample_rate = int(self.processor.sampling_rate)
+        self.hidden_state_count = int(getattr(self.model.config, "num_hidden_layers", 0)) + 1
+
+    def _pool_hidden(self, hidden: torch.Tensor, attention_mask: torch.Tensor | None) -> torch.Tensor:
+        if attention_mask is None:
+            return hidden.mean(dim=1)
+        attention_mask = attention_mask.to(hidden.device)
+        if hasattr(self.model, "_get_feature_vector_attention_mask"):
+            mask = self.model._get_feature_vector_attention_mask(hidden.shape[1], attention_mask)
+        else:
+            mask = attention_mask
+        mask = mask.to(hidden.device).unsqueeze(-1).type_as(hidden)
+        masked = hidden * mask
+        denom = mask.sum(dim=1).clamp(min=1.0)
+        return masked.sum(dim=1) / denom
+
+    def extract(self, audio_paths: list[str], batch_size: int, include_layers: bool = False) -> ExtractorResult:
+        embeddings: list[np.ndarray] = []
+        layer_rows: dict[str, list[np.ndarray]] = {}
+        total_items = len(audio_paths)
+        total_batches = (total_items + batch_size - 1) // batch_size
+        start_time = time.time()
+        if _LOG_EVERY > 0:
+            print(
+                f"[embed] start {self.model_name} device={self.device} "
+                f"items={total_items} batch={batch_size} include_layers={include_layers}",
+                flush=True,
+            )
+
+        for batch_index, start in enumerate(range(0, len(audio_paths), batch_size), start=1):
+            batch_paths = audio_paths[start : start + batch_size]
+            audio_batch = [load_waveform(path, target_sample_rate=self.sample_rate) for path in batch_paths]
+            inputs = self.processor(
+                audio_batch,
+                sampling_rate=self.sample_rate,
+                return_tensors="pt",
+                padding=True,
+            )
+            attention_mask = inputs.get("attention_mask")
+            inputs = {key: value.to(self.device) for key, value in inputs.items()}
+            with torch.no_grad():
+                outputs = self.model(**inputs, return_dict=True, output_hidden_states=include_layers)
+
+            pooled_last = self._pool_hidden(outputs.last_hidden_state, attention_mask)
+            embeddings.append(pooled_last.detach().cpu().numpy().astype(np.float32, copy=False))
+
+            if include_layers:
+                for layer_index, hidden in enumerate(outputs.hidden_states or ()):
+                    pooled = self._pool_hidden(hidden, attention_mask)
+                    layer_rows.setdefault(f"layer_{layer_index:02d}", []).append(
+                        pooled.detach().cpu().numpy().astype(np.float32, copy=False)
+                    )
+            _maybe_log_progress(
+                model_name=self.model_name,
+                device=self.device,
+                batch_index=batch_index,
+                total_batches=total_batches,
+                total_items=total_items,
+                batch_size=batch_size,
+                start_time=start_time,
+            )
+
+        return ExtractorResult(
+            final_name=self.final_representation_name,
+            final_matrix=np.concatenate(embeddings, axis=0),
+            layer_matrices={
+                layer_name: np.concatenate(parts, axis=0) for layer_name, parts in layer_rows.items()
+            },
+            metadata={"model_id": self.model_id, "sample_rate": self.sample_rate},
+        )
+
+    def representation_names(self, include_layers: bool) -> list[str]:
+        names = [self.final_representation_name]
+        if include_layers:
+            names.extend(f"layer_{layer_index:02d}" for layer_index in range(self.hidden_state_count))
+        return names
+
+
 def pool_hidden_state(hidden: torch.Tensor) -> torch.Tensor:
     if hidden.ndim == 3:
         return hidden.mean(dim=1)
@@ -953,7 +1059,7 @@ def get_extractor(
     cache_dir: str | None = None,
     local_files_only: bool = False,
     clap_variant: str = "audio_embedding",
-) -> ClapExtractor | MulanExtractor | MertExtractor | MusicGenExtractor:
+) -> ClapExtractor | MulanExtractor | MertExtractor | Wav2Vec2Extractor | MusicGenExtractor:
     normalized = model_name.strip().lower()
     resolved_device = resolve_device(device)
     if normalized == "clap":
@@ -996,6 +1102,12 @@ def get_extractor(
     if normalized == "mert95":
         return MertExtractor(
             model_id=DEFAULT_MERT95_MODEL_ID,
+            device=resolved_device,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+        )
+    if normalized == "wav2vec2":
+        return Wav2Vec2Extractor(
             device=resolved_device,
             cache_dir=cache_dir,
             local_files_only=local_files_only,

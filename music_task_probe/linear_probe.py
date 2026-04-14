@@ -44,6 +44,7 @@ PREFERRED_MODEL_ORDER = (
     "mulan",
     "mert",
     "mert95",
+    "wav2vec2",
     "musicgen_small",
     "musicgen_medium",
     "musicgen_large",
@@ -770,6 +771,8 @@ def run_probes(
     alignment_root: Path,
     output_root: Path,
     representation_mode: str = "all",
+    model_names: set[str] | None = None,
+    dataset_dirs: set[str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     detail_rows = _load_resume_rows(output_root, representation_mode=representation_mode)
     completed_keys = _existing_completed_keys(detail_rows)
@@ -784,8 +787,15 @@ def run_probes(
         )
 
     for task_spec in TASK_SPECS:
+        if dataset_dirs is not None and task_spec["dataset_dir"] not in dataset_dirs:
+            continue
         task_root = embeddings_root / task_spec["dataset_dir"] / task_spec["task_dir"]
-        for model_name in _discover_model_names(task_root):
+        if not task_root.exists():
+            continue
+        discovered_models = _discover_model_names(task_root)
+        if model_names is not None:
+            discovered_models = [name for name in discovered_models if name in model_names]
+        for model_name in discovered_models:
             representation_dirs = _discover_representation_dirs(task_root, model_name)
             if len(representation_dirs) == 0:
                 continue
@@ -851,20 +861,37 @@ def main() -> None:
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("/home/hjkim/selective_auditory/ismir2026/music_task_probe/probe_results"),
+        default=Path("/home/hjkim/selective_auditory/ismir2026/music_task_probe/probe_results_all_models"),
     )
     parser.add_argument(
         "--representation-mode",
         choices=["all", "final_only"],
         default="all",
     )
+    parser.add_argument(
+        "--model-name",
+        action="append",
+        default=[],
+        help="Run only selected model name(s). Can be passed multiple times.",
+    )
+    parser.add_argument(
+        "--dataset-dir",
+        action="append",
+        default=[],
+        help="Run only selected dataset directory name(s). Can be passed multiple times.",
+    )
     args = parser.parse_args()
+
+    selected_models = {name.strip().lower() for name in args.model_name if str(name).strip()}
+    selected_datasets = {name.strip().lower() for name in args.dataset_dir if str(name).strip()}
 
     details, summary = run_probes(
         args.embeddings_root,
         args.alignment_root,
         args.output_root,
         representation_mode=args.representation_mode,
+        model_names=(selected_models if selected_models else None),
+        dataset_dirs=(selected_datasets if selected_datasets else None),
     )
     print(args.output_root / "probe_summary.csv")
     print(args.output_root / "probe_details.csv")

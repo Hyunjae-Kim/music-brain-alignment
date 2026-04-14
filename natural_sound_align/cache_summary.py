@@ -22,6 +22,7 @@ FOUNDATION_MODELS = (
     "MULAN",
     "MERT",
     "MERT95",
+    "WAV2VEC2",
     "MUSICGEN_SMALL",
     "MUSICGEN_MEDIUM",
     "MUSICGEN_LARGE",
@@ -161,6 +162,7 @@ def write_compiled_summaries(
     compiled_root: Path | None = None,
     datasets: Iterable[str] = ("NH2015", "B2021"),
     allowed_models: Iterable[str] | None = None,
+    merge_existing: bool = False,
 ) -> tuple[Path, Path]:
     compiled_root = compiled_root or COMPILED_ROOT
     compiled_root.mkdir(parents=True, exist_ok=True)
@@ -176,6 +178,68 @@ def write_compiled_summaries(
     rsa_csv = compiled_root / "rsa_layerwise_summary.csv"
     regression_pkl = compiled_root / "regression_layerwise_summary.pkl"
     rsa_pkl = compiled_root / "rsa_layerwise_summary.pkl"
+
+    if merge_existing and regression_csv.exists() and rsa_csv.exists():
+        existing_regression = pd.read_csv(regression_csv)
+        existing_rsa = pd.read_csv(rsa_csv)
+
+        def _normalized_key_frame(frame: pd.DataFrame) -> pd.DataFrame:
+            key_frame = frame.copy()
+            key_frame["_dataset_key"] = key_frame["dataset_name"].astype(str).str.upper()
+            key_frame["_model_key"] = key_frame["model_name"].astype(str).str.upper()
+            key_frame["_rep_key"] = key_frame["representation_name"].astype(str)
+            return key_frame
+
+        incoming_regression = _normalized_key_frame(regression_df)
+        incoming_rsa = _normalized_key_frame(rsa_df)
+        existing_regression_keys = _normalized_key_frame(existing_regression)
+        existing_rsa_keys = _normalized_key_frame(existing_rsa)
+
+        incoming_regression_key_set = set(
+            zip(
+                incoming_regression["_dataset_key"],
+                incoming_regression["_model_key"],
+                incoming_regression["_rep_key"],
+            )
+        )
+        incoming_rsa_key_set = set(
+            zip(
+                incoming_rsa["_dataset_key"],
+                incoming_rsa["_model_key"],
+                incoming_rsa["_rep_key"],
+            )
+        )
+
+        keep_regression_mask = [
+            (dataset_key, model_key, rep_key) not in incoming_regression_key_set
+            for dataset_key, model_key, rep_key in zip(
+                existing_regression_keys["_dataset_key"],
+                existing_regression_keys["_model_key"],
+                existing_regression_keys["_rep_key"],
+            )
+        ]
+        keep_rsa_mask = [
+            (dataset_key, model_key, rep_key) not in incoming_rsa_key_set
+            for dataset_key, model_key, rep_key in zip(
+                existing_rsa_keys["_dataset_key"],
+                existing_rsa_keys["_model_key"],
+                existing_rsa_keys["_rep_key"],
+            )
+        ]
+
+        regression_df = pd.concat([existing_regression.loc[keep_regression_mask], regression_df], ignore_index=True)
+        rsa_df = pd.concat([existing_rsa.loc[keep_rsa_mask], rsa_df], ignore_index=True)
+
+    regression_df = regression_df.sort_values(
+        ["dataset_name", "model_name", "layer_depth", "representation_name"],
+        ignore_index=True,
+        kind="stable",
+    )
+    rsa_df = rsa_df.sort_values(
+        ["dataset_name", "model_name", "layer_depth", "representation_name"],
+        ignore_index=True,
+        kind="stable",
+    )
 
     regression_df.to_csv(regression_csv, index=False)
     rsa_df.to_csv(rsa_csv, index=False)
@@ -457,17 +521,51 @@ def build_parser() -> argparse.ArgumentParser:
         description="Precompute all dataset/model/layer regression and RSA outputs, then compile summary tables.",
     )
     parser.add_argument(
+        "--models",
+        nargs="+",
+        default=None,
+        help="Optional subset of model names to cache/compile (e.g., WAV2VEC2). Defaults to all.",
+    )
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=None,
+        help="Optional subset of datasets to cache/compile (e.g., NH2015 B2021). Defaults to both.",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Recompute cached outputs even if they already exist.",
+    )
+    parser.add_argument(
+        "--merge-existing",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "When compiling a subset (specific models or datasets), merge refreshed rows into existing "
+            "compiled_results instead of replacing the whole table. "
+            "Default: enabled for subset runs, disabled for full runs."
+        ),
     )
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    ensure_full_cache(overwrite=args.overwrite)
-    regression_pkl, rsa_pkl = write_compiled_summaries()
+    models = [name.strip().upper() for name in args.models] if args.models else None
+    datasets = args.datasets if args.datasets else ("NH2015", "B2021")
+    ensure_full_cache(
+        datasets=datasets,
+        models=models or DEFAULT_MODELS,
+        overwrite=args.overwrite,
+    )
+    is_subset_run = bool(args.models) or bool(args.datasets)
+    merge_existing = args.merge_existing if args.merge_existing is not None else is_subset_run
+    regression_pkl, rsa_pkl = write_compiled_summaries(
+        datasets=datasets,
+        allowed_models=models,
+        merge_existing=merge_existing,
+    )
     print(f"Wrote compiled regression summary: {regression_pkl}")
     print(f"Wrote compiled RSA summary: {rsa_pkl}")
 

@@ -64,6 +64,7 @@ Currently extracted models include:
 - `mulan`
 - `mert`
 - `mert95`
+- `wav2vec2`
 - `musicgen_small`
 - `musicgen_medium`
 - `musicgen_large`
@@ -95,10 +96,10 @@ Use this package for downstream probing over the extracted `music_task_embed` em
 Important locations:
 
 - Code: [music_task_probe](/home/hjkim/selective_auditory/ismir2026/music_task_probe)
-- Probe outputs: [probe_results](/home/hjkim/selective_auditory/ismir2026/music_task_probe/probe_results)
-- Final-only probe outputs: [probe_results_final_only](/home/hjkim/selective_auditory/ismir2026/music_task_probe/probe_results_final_only)
+- Canonical probe outputs (all models + layerwise/final summaries): [probe_results_all_models](/home/hjkim/selective_auditory/ismir2026/music_task_probe/probe_results_all_models)
 - Notebooks:
   - [probe_results_overview.ipynb](/home/hjkim/selective_auditory/ismir2026/music_task_probe/notebooks/probe_results_overview.ipynb)
+  - [results_aggregated.ipynb](/home/hjkim/selective_auditory/ismir2026/music_task_probe/notebooks/results_aggregated.ipynb)
   - [layer_analysis.ipynb](/home/hjkim/selective_auditory/ismir2026/music_task_probe/notebooks/layer_analysis.ipynb)
 
 This package reads:

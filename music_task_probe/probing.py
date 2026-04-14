@@ -21,6 +21,7 @@ MODEL_REPRESENTATIONS = {
     "mulan": "final",
     "mert": "final",
     "mert95": "final",
+    "wav2vec2": "final",
     "musicgen_small": "final",
     "musicgen_medium": "final",
     "musicgen_large": "final",

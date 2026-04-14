@@ -28,6 +28,7 @@ DEFAULT_MODELS = (
     "MULAN",
     "MERT",
     "MERT95",
+    "WAV2VEC2",
     "MUSICGEN_SMALL",
     "MUSICGEN_MEDIUM",
     "MUSICGEN_LARGE",
@@ -312,7 +313,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=list(DEFAULT_MODELS),
         help=(
             "Model names to analyze. Supported: "
-            "CLAP CLAP_MUSIC CLAP_MUSIC_SPEECH MULAN MERT MERT95 "
+            "CLAP CLAP_MUSIC CLAP_MUSIC_SPEECH MULAN MERT MERT95 WAV2VEC2 "
             "MUSICGEN_SMALL MUSICGEN_MEDIUM MUSICGEN_LARGE MUSICGEN_MELODY_LARGE "
             "SPECTEMP"
         ),

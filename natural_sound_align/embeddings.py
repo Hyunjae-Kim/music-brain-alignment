@@ -19,7 +19,7 @@ from .data import (
 )
 
 
-FOUNDATION_OUTPUTS = PROJECT_ROOT / "foundation_test" / "outputs"
+FOUNDATION_OUTPUTS = PROJECT_ROOT.parent / "foundation_test" / "outputs"
 SPECTEMP_CACHE = PACKAGE_ROOT / "cache" / "model_actv" / "spectemp" / "natsound_activations.h5"
 
 MODEL_SPECS = {
@@ -82,6 +82,15 @@ MODEL_SPECS = {
         "output_dir": FOUNDATION_OUTPUTS / "mert",
         "model_name_arg": "mert",
         "hf_model_id": "m-a-p/MERT-v1-330M",
+    },
+    "WAV2VEC2": {
+        "final_path": FOUNDATION_OUTPUTS / "wav2vec2" / "combined_representations.npz",
+        "layers_index": FOUNDATION_OUTPUTS / "wav2vec2" / "layers" / "index.json",
+        "matrix_key": "representations",
+        "script": PROJECT_ROOT / "foundation_test" / "scripts" / "extract_foundation_model_embeddings.py",
+        "output_dir": FOUNDATION_OUTPUTS / "wav2vec2",
+        "model_name_arg": "wav2vec2",
+        "hf_model_id": "facebook/wav2vec2-base-960h",
     },
     "MUSICGEN_SMALL": {
         "final_path": FOUNDATION_OUTPUTS / "musicgen_small" / "combined_representations.npz",

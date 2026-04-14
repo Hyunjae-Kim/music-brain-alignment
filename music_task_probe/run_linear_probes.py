@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("/home/hjkim/selective_auditory/ismir2026/music_task_probe/probe_results"),
+        default=Path("/home/hjkim/selective_auditory/ismir2026/music_task_probe/probe_results_all_models"),
         help="Directory for probe CSV outputs.",
     )
     return parser.parse_args()
@@ -51,6 +51,9 @@ def main() -> None:
     for job in build_probe_jobs(args.embeddings_root):
         representation_dir = Path(job["representation_dir"])
         bundle = load_embedding_bundle(representation_dir)
+        if not bundle:
+            print(f"skip: {job['dataset_dir']}/{job['task_dir']} {job['model_name']} (no embeddings)", flush=True)
+            continue
         result = evaluate_embedding_bundle(bundle)
         summary_rows.append(result["summary"])
         detail_rows.extend(result["details"])

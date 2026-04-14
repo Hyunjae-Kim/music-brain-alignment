@@ -150,7 +150,7 @@ def load_tuckute_stimulus_metadata(dataset_name: str = "NH2015") -> pd.DataFrame
 
     rows: list[dict[str, object]] = []
     for stimulus_index, stim_name in enumerate(stimulus_ids):
-        wav_path = WAV_DIR / f"{stim_name}.wav"
+        wav_path = NORMAN_WAV_DIR / f"{stim_name}.wav"
         rows.append(
             {
                 "stimulus_index": stimulus_index,

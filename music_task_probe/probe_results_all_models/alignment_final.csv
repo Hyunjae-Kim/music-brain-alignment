@@ -9,6 +9,7 @@ regression,B2021,musicgen_large,final,,49.0,True,mean_noise_corrected_r2,0.46726
 regression,B2021,musicgen_medium,final,,49.0,True,mean_noise_corrected_r2,0.4457876682281494,median_noise_corrected_r2,0.4371181726455688,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/musicgen_medium/final
 regression,B2021,musicgen_melody_large,final,,49.0,True,mean_noise_corrected_r2,0.4587216079235077,median_noise_corrected_r2,0.4729820191860199,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/musicgen_melody_large/final
 regression,B2021,musicgen_small,final,,25.0,True,mean_noise_corrected_r2,0.5391029119491577,median_noise_corrected_r2,0.5432112216949463,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/musicgen_small/final
+regression,B2021,wav2vec2,final,,13.0,True,mean_noise_corrected_r2,0.4730371236801147,median_noise_corrected_r2,0.4802998304367065,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/wav2vec2/final
 regression,NH2015,clap,final,,5.0,True,mean_noise_corrected_r2,0.670691192150116,median_noise_corrected_r2,0.7020756006240845,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/clap/final
 regression,NH2015,clap_music,final,,5.0,True,mean_noise_corrected_r2,0.063183881342411,median_noise_corrected_r2,0.006689921952784,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/clap_music/final
 regression,NH2015,clap_music_speech,final,,5.0,True,mean_noise_corrected_r2,0.6573944687843323,median_noise_corrected_r2,0.684140145778656,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/clap_music_speech/final
@@ -19,6 +20,7 @@ regression,NH2015,musicgen_large,final,,49.0,True,mean_noise_corrected_r2,0.5039
 regression,NH2015,musicgen_medium,final,,49.0,True,mean_noise_corrected_r2,0.4773071110248565,median_noise_corrected_r2,0.4542421698570251,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/musicgen_medium/final
 regression,NH2015,musicgen_melody_large,final,,49.0,True,mean_noise_corrected_r2,0.5188964605331421,median_noise_corrected_r2,0.5401061773300171,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/musicgen_melody_large/final
 regression,NH2015,musicgen_small,final,,25.0,True,mean_noise_corrected_r2,0.5761088132858276,median_noise_corrected_r2,0.5607395768165588,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/musicgen_small/final
+regression,NH2015,wav2vec2,final,,13.0,True,mean_noise_corrected_r2,0.4816920459270477,median_noise_corrected_r2,0.4749554693698883,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/wav2vec2/final
 regression,mean,clap,final,,5.0,True,mean_noise_corrected_r2,0.6804911494255066,median_noise_corrected_r2,0.7133155465126038,
 regression,mean,clap_music,final,,5.0,True,mean_noise_corrected_r2,0.0580804236233234,median_noise_corrected_r2,0.0067464692983776,
 regression,mean,clap_music_speech,final,,5.0,True,mean_noise_corrected_r2,0.667910248041153,median_noise_corrected_r2,0.6969965696334839,
@@ -29,6 +31,7 @@ regression,mean,musicgen_large,final,,49.0,True,mean_noise_corrected_r2,0.485622
 regression,mean,musicgen_medium,final,,49.0,True,mean_noise_corrected_r2,0.461547389626503,median_noise_corrected_r2,0.44568017125129694,
 regression,mean,musicgen_melody_large,final,,49.0,True,mean_noise_corrected_r2,0.4888090342283249,median_noise_corrected_r2,0.5065440982580185,
 regression,mean,musicgen_small,final,,25.0,True,mean_noise_corrected_r2,0.5576058626174927,median_noise_corrected_r2,0.5519753992557526,
+regression,mean,wav2vec2,final,,13.0,True,mean_noise_corrected_r2,0.4773645848035812,median_noise_corrected_r2,0.4776276499032974,
 rsa,B2021,clap,final,,5.0,True,mean_spearman,0.369999028556235,median_spearman,0.3734966918181038,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/clap/final
 rsa,B2021,clap_music,final,,5.0,True,mean_spearman,0.0746248079169702,median_spearman,0.0764726189788415,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/clap_music/final
 rsa,B2021,clap_music_speech,final,,5.0,True,mean_spearman,0.3813844114181248,median_spearman,0.390238028646338,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/clap_music_speech/final
@@ -39,6 +42,7 @@ rsa,B2021,musicgen_large,final,,49.0,True,mean_spearman,0.2662126245887993,media
 rsa,B2021,musicgen_medium,final,,49.0,True,mean_spearman,0.2496110717815831,median_spearman,0.2523926919161549,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/musicgen_medium/final
 rsa,B2021,musicgen_melody_large,final,,49.0,True,mean_spearman,0.1363683387886856,median_spearman,0.1410856149488598,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/musicgen_melody_large/final
 rsa,B2021,musicgen_small,final,,25.0,True,mean_spearman,0.3030294534951338,median_spearman,0.3085224302413362,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/musicgen_small/final
+rsa,B2021,wav2vec2,final,,13.0,True,mean_spearman,0.2658213055891648,median_spearman,0.2777593444675032,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/b2021/wav2vec2/final
 rsa,NH2015,clap,final,,5.0,True,mean_spearman,0.3770129795461031,median_spearman,0.3815700917648362,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/clap/final
 rsa,NH2015,clap_music,final,,5.0,True,mean_spearman,0.0840105847670632,median_spearman,0.0810041726353881,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/clap_music/final
 rsa,NH2015,clap_music_speech,final,,5.0,True,mean_spearman,0.3903864908573697,median_spearman,0.3999844243012523,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/clap_music_speech/final
@@ -49,6 +53,7 @@ rsa,NH2015,musicgen_large,final,,49.0,True,mean_spearman,0.2936666573040145,medi
 rsa,NH2015,musicgen_medium,final,,49.0,True,mean_spearman,0.2817719617188531,median_spearman,0.2845992142868146,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/musicgen_medium/final
 rsa,NH2015,musicgen_melody_large,final,,49.0,True,mean_spearman,0.1621957394800139,median_spearman,0.1583339977531993,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/musicgen_melody_large/final
 rsa,NH2015,musicgen_small,final,,25.0,True,mean_spearman,0.3428691849436024,median_spearman,0.334746962934499,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/musicgen_small/final
+rsa,NH2015,wav2vec2,final,,13.0,True,mean_spearman,0.2444020584376143,median_spearman,0.2469294412508717,/home/hjkim/selective_auditory/ismir2026/natural_sound_align/embeddings/nh2015/wav2vec2/final
 rsa,mean,clap,final,,5.0,True,mean_spearman,0.37350600405116907,median_spearman,0.37753339179147,
 rsa,mean,clap_music,final,,5.0,True,mean_spearman,0.0793176963420167,median_spearman,0.07873839580711481,
 rsa,mean,clap_music_speech,final,,5.0,True,mean_spearman,0.38588545113774725,median_spearman,0.39511122647379515,
@@ -59,3 +64,4 @@ rsa,mean,musicgen_large,final,,49.0,True,mean_spearman,0.2799396409464069,median
 rsa,mean,musicgen_medium,final,,49.0,True,mean_spearman,0.26569151675021807,median_spearman,0.2684959531014848,
 rsa,mean,musicgen_melody_large,final,,49.0,True,mean_spearman,0.14928203913434973,median_spearman,0.14970980635102954,
 rsa,mean,musicgen_small,final,,25.0,True,mean_spearman,0.3229493192193681,median_spearman,0.3216346965879176,
+rsa,mean,wav2vec2,final,,13.0,True,mean_spearman,0.2551116820133895,median_spearman,0.2623443928591875,
