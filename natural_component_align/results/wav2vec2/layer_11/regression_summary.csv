@@ -1,0 +1,7 @@
+model_name,representation_name,layer_index,component_name,mean_r2,median_r2,mean_train_r2,median_train_r2,mean_alpha,median_alpha,n_splits,source_dim
+WAV2VEC2,layer_11,11,lowfreq,0.409981,0.4124119,0.7878429,0.7385653,7.3,10.0,10,768
+WAV2VEC2,layer_11,11,highfreq,0.3553494,0.3707562,0.71939105,0.68640816,8.2,10.0,10,768
+WAV2VEC2,layer_11,11,envsounds,0.24297479,0.24993688,0.66399854,0.64662516,9.1,10.0,10,768
+WAV2VEC2,layer_11,11,pitch,0.339521,0.33162695,0.71043026,0.6721555,8.2,10.0,10,768
+WAV2VEC2,layer_11,11,speech,0.7600091,0.756544,0.9697978,0.97893286,1.9,1.0,10,768
+WAV2VEC2,layer_11,11,music,0.25395584,0.24646379,0.5869809,0.58479804,10.0,10.0,10,768

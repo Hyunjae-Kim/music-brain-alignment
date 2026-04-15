@@ -114,6 +114,24 @@ conda run -n universal python -m ismir2026.music_task_probe.run_linear_probes
 conda run -n universal python -m ismir2026.music_task_probe.linear_probe --representation-mode final_only
 ```
 
+### `noise_music_task_embed` and `noise_music_task_probe`
+
+Use these packages for downstream noise-robustness experiments with on-the-fly SNR-controlled augmentation:
+
+- [noise_music_task_embed](/home/hjkim/selective_auditory/ismir2026/noise_music_task_embed): extract embeddings with `clean + staged SNR noise` without duplicating audio files
+- [noise_music_task_probe](/home/hjkim/selective_auditory/ismir2026/noise_music_task_probe): run probes across noise conditions and summarize clean-vs-noise drops
+
+Representative command sequence (EMO + MuLAN + MusicGen-melody-large):
+
+```bash
+conda run -n universal python -m ismir2026.noise_music_task_embed.run_noise_extraction_job \
+  --device cuda \
+  --cache-dir /home/hjkim/.cache/huggingface \
+  --batch-size 1
+
+conda run -n universal python -m ismir2026.noise_music_task_probe.run_noise_linear_probes
+```
+
 ## Notes on the rename
 
 The following path changes have been applied through the code, notebooks, and manifest metadata:

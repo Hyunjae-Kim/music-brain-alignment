@@ -1,0 +1,7 @@
+model_name,representation_name,layer_index,component_name,mean_spearman,median_spearman,n_splits
+MERT,layer_04,4,lowfreq,0.32802635,0.3303773,10
+MERT,layer_04,4,highfreq,0.2719809,0.26784706,10
+MERT,layer_04,4,envsounds,0.16618128,0.17496218,10
+MERT,layer_04,4,pitch,0.35968757,0.36810815,10
+MERT,layer_04,4,speech,0.20959635,0.21141616,10
+MERT,layer_04,4,music,0.2143428,0.20436835,10

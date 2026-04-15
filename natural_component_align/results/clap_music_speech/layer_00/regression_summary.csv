@@ -1,0 +1,7 @@
+model_name,representation_name,layer_index,component_name,mean_r2,median_r2,mean_train_r2,median_train_r2,mean_alpha,median_alpha,n_splits,source_dim
+CLAP_MUSIC_SPEECH,layer_00,0,lowfreq,0.0,0.0,0.33443096,0.33443096,1.0,1.0,1,128
+CLAP_MUSIC_SPEECH,layer_00,0,highfreq,0.4400849,0.4400849,0.295362,0.295362,1.0,1.0,1,128
+CLAP_MUSIC_SPEECH,layer_00,0,envsounds,0.027710546,0.027710546,0.33675402,0.33675402,10.0,10.0,1,128
+CLAP_MUSIC_SPEECH,layer_00,0,pitch,0.0,0.0,0.27699718,0.27699718,1.0,1.0,1,128
+CLAP_MUSIC_SPEECH,layer_00,0,speech,0.0,0.0,0.14174998,0.14174998,1.0,1.0,1,128
+CLAP_MUSIC_SPEECH,layer_00,0,music,0.0,0.0,0.24074689,0.24074689,1.0,1.0,1,128

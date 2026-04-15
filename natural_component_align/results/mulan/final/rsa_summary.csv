@@ -1,0 +1,7 @@
+model_name,representation_name,layer_index,component_name,mean_spearman,median_spearman,n_splits
+MULAN,final,,lowfreq,0.24955793,0.24954274,10
+MULAN,final,,highfreq,0.09018822,0.09108459,10
+MULAN,final,,envsounds,0.07960896,0.07797822,10
+MULAN,final,,pitch,0.23420408,0.24613133,10
+MULAN,final,,speech,0.2582112,0.2622072,10
+MULAN,final,,music,0.20357439,0.20349662,10

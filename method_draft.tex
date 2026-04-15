@@ -9,12 +9,26 @@ We evaluate whether music foundation models align with human auditory representa
 We use two publicly available natural sound datasets that have been used in prior auditory alignment work: Norman-Haignere et al. (2015; NH2015) and Boebinger et al. (2021; B2021). Both provide stimulus-level fMRI responses to a set of 165 natural sounds with three repetitions per stimulus. We follow the original train/test splits and reliability estimates provided with the datasets and reproduce the preprocessing and evaluation protocol from Tuckute et al. (2023).
 
 \paragraph{Music downstream tasks.}
-We evaluate model embeddings on a set of music tasks spanning tagging, emotion, and genre/instrument recognition. The current task set includes:
-\begin{itemize}
-  \item EMO: music emotion regression with separate valence and arousal targets.
-  \item MTG Jamendo: Top50 tagging, Mood/Theme, Genre, and Instrument subsets.
-\end{itemize}
-All datasets are stored under \texttt{./dataset/music\_dataset} with manifest files defining splits and label targets. For each task, we use the official or widely adopted train/validation/test splits from dataset providers.
+Following the MARBLE benchmark taxonomy in Yuan et al., we evaluate six downstream tasks spanning high-level, performance-level, and acoustic-level prediction. Table~\ref{tab:downstream_tasks} summarizes the task definitions, prediction heads, split protocols, and primary probe metrics used in this work. EMO is treated as a two-target regression problem (valence and arousal), and VocalSet is evaluated with fold-based circular cross-validation.
+
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{lllp{2.3cm}p{2.6cm}cc}
+\hline
+\textbf{MARBLE Taxonomy} & \textbf{Dataset} & \textbf{Task} & \textbf{Prediction Type} & \textbf{Split Protocol} & \textbf{$N$} & \textbf{Primary Metric} \\
+\hline
+High-level description & GTZAN & Genre classification & Multi-class classification & Official filtered train/valid/test split & 930 & Accuracy \\
+High-level description & GiantSteps & Key detection & Multi-class classification & Train/valid/test split (MARBLE setting) & 7,035 & Accuracy \\
+High-level description & MagnaTagATune & Music tagging & Multi-label classification & Train/valid/test split & 21,108 & Macro AP \\
+High-level description & EMO & Emotion regression & Two-target regression (valence/arousal) & Train/valid/test split & 744 & Mean Pearson ($v,a$) \\
+Performance-level & VocalSet & Singing technique & Multi-class classification & 5-fold circular CV (representative holdout) & 3,649 & Accuracy \\
+Acoustic-level & NSynthPitch5h & Pitch estimation & 88-class classification & Train/valid/test split & 5,000 & Accuracy \\
+\hline
+\end{tabular}
+\caption{Downstream tasks used in this work, organized in the MARBLE-style taxonomy (Yuan et al.). $N$ denotes the number of audio examples used by our manifests.}
+\label{tab:downstream_tasks}
+\end{table*}
 
 \subsection{Models}
 We evaluate a set of pretrained audio and music foundation models. The current suite includes:
@@ -22,9 +36,34 @@ We evaluate a set of pretrained audio and music foundation models. The current s
   \item CLAP (general audio) and CLAP variants (music-only, music+speech).
   \item Mulan.
   \item MERT (95M and 330M).
+  \item Wav2Vec2 (base).
   \item MusicGen (small, medium, large, and large-melody).
 \end{itemize}
 All models are used in frozen mode without finetuning. For each model, we extract representations from every encoder block (layer-wise) and the final pooled embedding. Model checkpoints are obtained via Hugging Face, and all embedding extraction is GPU-accelerated.
+
+\begin{table*}[t]
+\centering
+\scriptsize
+\begin{tabular}{lllp{2.0cm}lp{2.3cm}ccc}
+\hline
+\textbf{Model} & \textbf{Modality} & \textbf{Application} & \textbf{Training Paradigm} & \textbf{Architecture} & \textbf{Checkpoint} & \textbf{Params} & \textbf{SR (kHz)} & \textbf{Final Dim} \\
+\hline
+CLAP & Audio+Text & Understanding & Contrastive learning & HTSAT encoder + projection & \texttt{laion/clap-htsat-unfused} & 154M & 48 & 512 \\
+CLAP-Music & Audio+Text & Understanding & Contrastive learning & HTSAT encoder (music) & \texttt{laion/larger\_clap\_music} & 194M & 48 & 1024 \\
+CLAP-Music+Speech & Audio+Text & Understanding & Contrastive learning & HTSAT encoder (music+speech) & \texttt{laion/larger\_clap\_music\_and\_speech} & 194M & 48 & 1024 \\
+MuLan & Audio+Text & Understanding & Contrastive learning & CNN+Transformer encoder & \texttt{OpenMuQ/MuQ-MuLan-large} & 663M & 24 & 512 \\
+MERT-95M & Audio & Understanding & Masked modeling (SSL) & Transformer encoder & \texttt{m-a-p/MERT-v1-95M} & 95M & 24 & 768 \\
+MERT-330M & Audio & Understanding & Masked modeling (SSL) & Transformer encoder & \texttt{m-a-p/MERT-v1-330M} & 330M & 24 & 1024 \\
+Wav2Vec2-Base & Audio (speech pretrain) & Understanding & Masked modeling (SSL) & Transformer encoder & \texttt{facebook/wav2vec2-base-960h} & 95M & 16 & 768 \\
+MusicGen-Small & Audio+Text & Generation/representation & Generative pretraining & Transformer decoder & \texttt{facebook/musicgen-small} & 0.3B & 32 & 1024 \\
+MusicGen-Medium & Audio+Text & Generation/representation & Generative pretraining & Transformer decoder & \texttt{facebook/musicgen-medium} & 1.5B & 32 & 1536 \\
+MusicGen-Large & Audio+Text & Generation/representation & Generative pretraining & Transformer decoder & \texttt{facebook/musicgen-large} & 3.3B & 32 & 2048 \\
+MusicGen-Melody-Large & Audio+Text+Melody & Generation/representation & Generative pretraining & Transformer decoder & \texttt{facebook/musicgen-melody-large} & 3.3B & 32 & 2048 \\
+\hline
+\end{tabular}
+\caption{Model inventory in a Ma et al.-style summary (model/modality/application/paradigm/architecture), with checkpoint and scale details used in this work.}
+\label{tab:model_inventory}
+\end{table*}
 
 \subsection{Embedding Extraction}
 Audio is loaded as mono and resampled to each model's native sampling rate using polyphase resampling. For each clip, we run the corresponding encoder and export both the final embedding and layer-wise embeddings. We apply model-specific pooling to convert hidden states to one vector per layer, and save embeddings to disk with metadata including model name, layer index, dataset, task, and split. Extraction is resume-safe and does not recompute completed partitions.
@@ -37,6 +76,9 @@ We use the MuQ-MuLan audio encoder at 24 kHz. For the final embedding, we obtain
 
 \paragraph{MERT.}
 We use MERT (95M and 330M) with its Wav2Vec2-style feature extractor. We compute pooled representations by attention-masked mean pooling over time. Layer-wise embeddings are computed by pooling each hidden layer with the same attention mask.
+
+\paragraph{Wav2Vec2.}
+We use \texttt{facebook/wav2vec2-base-960h} as a speech-pretrained baseline encoder. Hidden states are extracted from the embedding state and all Transformer blocks, and pooled with attention-masked mean pooling over valid frames. This yields one vector per layer and one final pooled representation per clip, matching the extraction protocol used for MERT to ensure comparable layer-wise analysis.
 
 \paragraph{MusicGen.}
 We extract decoder-side hidden states from MusicGen by encoding audio into EnCodec latents and running the decoder on these latents with unconditional text inputs. Prompt chunking is disabled to preserve a single frame of audio codes. We pool decoder hidden states by averaging across the sequence dimension. We evaluate small, medium, large, and melody-large variants.

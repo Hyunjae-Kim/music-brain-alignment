@@ -1,0 +1,7 @@
+model_name,representation_name,layer_index,component_name,mean_spearman,median_spearman,n_splits
+CLAP_MUSIC,layer_02,2,lowfreq,0.0846022,0.08810079,10
+CLAP_MUSIC,layer_02,2,highfreq,0.045896344,0.04994203,10
+CLAP_MUSIC,layer_02,2,envsounds,0.019799355,0.020904299,10
+CLAP_MUSIC,layer_02,2,pitch,0.0072176056,0.011140257,10
+CLAP_MUSIC,layer_02,2,speech,0.024112668,0.009189799,10
+CLAP_MUSIC,layer_02,2,music,0.027953964,0.029245164,10

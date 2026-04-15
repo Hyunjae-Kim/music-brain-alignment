@@ -1,0 +1,7 @@
+model_name,representation_name,layer_index,component_name,mean_spearman,median_spearman,n_splits
+MUSICGEN_SMALL,layer_17,17,lowfreq,0.271029,0.27436483,10
+MUSICGEN_SMALL,layer_17,17,highfreq,0.26555485,0.25878257,10
+MUSICGEN_SMALL,layer_17,17,envsounds,0.24415441,0.2427885,10
+MUSICGEN_SMALL,layer_17,17,pitch,0.15320164,0.13857016,10
+MUSICGEN_SMALL,layer_17,17,speech,0.08311468,0.07467919,10
+MUSICGEN_SMALL,layer_17,17,music,0.09839485,0.09764157,10

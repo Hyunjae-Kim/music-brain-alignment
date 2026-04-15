@@ -6,7 +6,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import h5py
 import numpy as np
 import pandas as pd
 
@@ -222,6 +221,8 @@ def load_model_embedding(
         )
 
     if normalized_model == "SPECTEMP":
+        import h5py
+
         with h5py.File(path, "r") as h5_file:
             matrix = np.asarray(h5_file[matrix_key], dtype=np.float32)
         metadata = load_tuckute_stimulus_metadata(normalized_dataset)

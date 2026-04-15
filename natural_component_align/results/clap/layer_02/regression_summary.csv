@@ -1,0 +1,7 @@
+model_name,representation_name,layer_index,component_name,mean_r2,median_r2,mean_train_r2,median_train_r2,mean_alpha,median_alpha,n_splits,source_dim
+CLAP,layer_02,2,lowfreq,0.6956078,0.6962005,0.9339784,0.9346451,1.7,1.0,10,384
+CLAP,layer_02,2,highfreq,0.77070403,0.76705325,0.85470104,0.8512653,9.1,10.0,10,384
+CLAP,layer_02,2,envsounds,0.53888184,0.5414901,0.7207778,0.6949306,8.2,10.0,10,384
+CLAP,layer_02,2,pitch,0.809219,0.8001166,0.9134768,0.92431056,5.5,5.5,10,384
+CLAP,layer_02,2,speech,0.7003743,0.69509107,0.9202242,0.93932474,2.7,1.0,10,384
+CLAP,layer_02,2,music,0.6412138,0.6258598,0.8636077,0.90808,4.6,1.0,10,384

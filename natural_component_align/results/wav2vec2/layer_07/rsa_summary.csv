@@ -1,0 +1,7 @@
+model_name,representation_name,layer_index,component_name,mean_spearman,median_spearman,n_splits
+WAV2VEC2,layer_07,7,lowfreq,0.14592506,0.13932386,10
+WAV2VEC2,layer_07,7,highfreq,0.10229848,0.10328925,10
+WAV2VEC2,layer_07,7,envsounds,0.1459952,0.15007848,10
+WAV2VEC2,layer_07,7,pitch,0.12793326,0.14362177,10
+WAV2VEC2,layer_07,7,speech,0.25135094,0.24554577,10
+WAV2VEC2,layer_07,7,music,0.064607225,0.06707575,10
