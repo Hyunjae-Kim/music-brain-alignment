@@ -1,0 +1,486 @@
+natural_sound_align pipeline 상세 설명
+
+목적
+- 이 문서는 ./natural_sound_align 코드의 실제 실행 흐름을 초보자도 따라갈 수 있게 정리한 가이드입니다.
+- 크게 2가지 파트를 다룹니다.
+  1) 임베딩 추출 파이프라인
+  2) 임베딩을 이용한 alignment 계산(regression, RSA)
+
+============================================================
+0. 큰 그림(한 줄 요약)
+============================================================
+- 임베딩 추출: wav(165개 자극) -> 모델별 은닉표현 추출 -> 시간축 평균(pooling) -> [stimulus, feature_dim] 행렬 저장
+- alignment 계산: 저장된 임베딩 + fMRI voxel 반응([stimulus, voxel, rep=3]) -> 10개 split 학습/평가 -> noise-corrected regression + RSA 계산/저장
+
+핵심 엔트리포인트
+- 전체 실행 엔트리포인트: ./natural_sound_align/pipeline.py
+  - main() -> run_all_models() -> run_single_model_analysis()
+- 임베딩 준비/로드: ./natural_sound_align/embeddings.py
+  - ensure_model_embeddings(), load_model_embedding()
+- fMRI 데이터 로드: ./natural_sound_align/data.py
+  - load_brain_voxel_data()
+- 회귀: ./natural_sound_align/regression.py
+  - run_noise_corrected_regression()
+- RSA: ./natural_sound_align/rsa.py
+  - run_rsa()
+
+
+============================================================
+1) Embedding 추출 파이프라인 (entry point부터)
+============================================================
+
+1-1. 어떤 코드에서 시작하나?
+- 분석 실행은 보통 아래 흐름으로 시작합니다.
+  - ./natural_sound_align/pipeline.py: main()
+  - main()은 run_all_models(...) 호출
+  - run_all_models()는 모델별로 run_single_model_analysis(...) 호출
+
+- run_single_model_analysis() 내부에서 임베딩 관련 핵심은 아래입니다.
+  - (옵션) ensure_model_embeddings(model_name, ...)
+  - load_model_embedding(model_name, layer_index, dataset_name)
+
+주의
+- ensure_model_embeddings(...)는 "임베딩 파일이 아직 없을 때" 외부 추출 스크립트를 실행합니다.
+- 이미 파일이 있으면 load_model_embedding(...)만 수행해 바로 분석으로 갑니다.
+
+
+1-2. 자극(audio) 메타데이터와 경로는 어디서 오나?
+- 로컬 Norman 자극 메타데이터(165개)는 다음 함수에서 만듭니다.
+  - ./natural_sound_align/data.py: load_local_norman_metadata()
+- 핵심 정보
+  - stim_name (자극 이름)
+  - category_label
+  - wav_path (실제 파일 경로)
+  - stimulus_index (0..164)
+
+주요 경로
+- wav 파일 기본 경로
+  - ./dataset/norman2015/stimuli/wav
+- Norman matlab 메타
+  - ./dataset/norman2015/norman2015_data_matrix.mat
+
+데이터 크기
+- 자극 개수 N = 165
+- 이후 모든 임베딩 행렬의 첫 축은 기본적으로 165
+
+
+1-3. 모델별 추출 스크립트/라이브러리/입력 형태
+
+A) CLAP 계열 (CLAP, CLAP_MUSIC, CLAP_MUSIC_SPEECH)
+- 스크립트
+  - /home/hjkim/selective_auditory/foundation_test/scripts/extract_clap_embeddings.py
+- 로딩 라이브러리
+  - transformers.AutoFeatureExtractor
+  - transformers.ClapModel
+- 오디오 입력
+  - soundfile로 wav 로드 -> mono 변환(스테레오면 평균)
+  - feature_extractor.sampling_rate로 리샘플
+  - feature_extractor(raw_speech=waveforms, return_tensors='pt')
+  - 모델 입력 텐서 key: input_features, is_longer(optional)
+- forward 및 임베딩 추출
+  - audio_outputs = model.audio_model(..., output_hidden_states=True)
+  - encoder_repr = audio_outputs.pooler_output (최종 encoder 표현)
+  - audio_embeddings = model.audio_projection(encoder_repr) 후 L2 normalize
+- 시간 pooling
+  - 중간 hidden state는 pool_hidden_state()에서 평균
+    - 4D [B, C, H, W] -> mean(H,W) => [B, C]
+    - 3D [B, T, C] -> mean(T) => [B, C]
+- 저장
+  - final 파일: combined_representations.npz
+  - CLAP 계열 분석에서 실제로 쓰는 matrix_key는 encoder_representations
+  - layer 저장: layers/layer_XX/combined_representations.npz
+
+B) MuLAN / MERT / Wav2Vec2
+- 스크립트
+  - /home/hjkim/selective_auditory/foundation_test/scripts/extract_foundation_model_embeddings.py
+- MuLAN
+  - 라이브러리: muq.MuQMuLan
+  - 입력: waveform (target sr=24000)
+  - final: model(wavs=...) 출력 임베딩
+  - hidden layer: _forward_pretrained_model(...)에서 추출 후 time mean
+- MERT
+  - 라이브러리: transformers.Wav2Vec2FeatureExtractor, AutoModel
+  - 입력: 가변 길이 waveform batch, padding=True
+  - hidden shape 개념: [B, T, D]
+  - pooling: attention mask 기반 masked mean over T
+  - final: outputs.last_hidden_state pooled
+  - layer: outputs.hidden_states 각 레이어 pooled
+- Wav2Vec2
+  - 라이브러리: Wav2Vec2FeatureExtractor, AutoModel
+  - 처리/ pooling 방식은 MERT와 동일 구조
+
+C) MusicGen 계열 (small/medium/large/melody-large)
+- 스크립트
+  - /home/hjkim/selective_auditory/foundation_test/scripts/extract_musicgen_decoder_embeddings.py
+- 라이브러리
+  - AutoProcessor, MusicgenForConditionalGeneration 또는 MusicgenMelodyForConditionalGeneration
+- 입력
+  - wav 로드/mono/resample -> model.audio_encoder.config.sampling_rate로 맞춤
+  - text prompt는 거의 null(" ") 입력 사용 (NaN 방지)
+- forward 및 추출 위치
+  - audio encoder로 code 추출 -> decoder_input_ids 구성
+  - decoder forward(output_hidden_states=True)
+  - decoder_hidden_states(또는 hidden_states) 사용
+- 시간 pooling
+  - hidden [B, T, D] -> mean(T) => [B, D]
+- final/layer
+  - final은 마지막 decoder hidden state mean
+  - layer는 각 decoder hidden state mean
+
+D) Jukebox
+- 스크립트(analysis 패키지 쪽)
+  - ./natural_sound_align/extract_jukebox_embeddings.py
+- 실제 extractor 구현
+  - ./music_task_embed/encoders.py: JukeboxExtractor
+- 라이브러리
+  - jukemirlib backend
+- 입력
+  - backend.load_audio(path, duration=25.0)
+  - sample_rate=44100
+- 추출
+  - backend.extract(audio=batch_audio, layers=[...], meanpool=True)
+  - layer index는 1..72
+- pooling
+  - backend가 meanpool=True로 처리한 결과를 _pool_representation에서 안전하게 정규화
+  - 3D면 axis=1 평균, 2D면 time 평균, 1D면 배치축 추가
+- final 정의
+  - final은 layer_72와 동일 의미(코드 주석/metadata에 명시)
+
+
+1-4. 모델별 파라미터 로딩은 어디서 제어하나?
+- ./natural_sound_align/embeddings.py: MODEL_SPECS
+  - 모델명별로 아래를 관리
+    - final_path
+    - layers_index
+    - matrix_key
+    - extraction script path
+    - output_dir
+    - hf_model_id
+- ensure_model_embeddings()가 subprocess로 스크립트를 실행할 때 공통 인자 전달
+  - --device
+  - --output-dir
+  - --model-id
+  - --save-intermediate-layers
+  - 일부 모델은 --model-name 추가
+
+
+1-5. 추출 후 파일 포맷과 최종 shape
+- 공통 저장 포맷(.npz)
+  - representations 또는 encoder_representations 등 matrix key
+  - stim_names, category_labels, wav_paths, stimulus_index
+  - representation_dim, sampling_rate, model_id 등
+
+- 분석 시 로딩 함수
+  - ./natural_sound_align/embeddings.py: load_model_embedding()
+  - 이 함수가 모델별 matrix_key를 맞춰 읽고 float32로 로드
+  - 비-SPECTEMP는 local Norman 순서와 일치 검사 후
+    dataset(NH2015/B2021) 순서로 재정렬(_reindex_to_target_order)
+
+- 최종 분석 입력 shape
+  - embedding.matrix: [165, source_dim]
+
+현재 캐시 기준(final representation source_dim)
+- CLAP: 768
+- CLAP_MUSIC: 1024
+- CLAP_MUSIC_SPEECH: 1024
+- MULAN: 512
+- MERT: 1024
+- MERT95: 768
+- WAV2VEC2: 768
+- JUKEBOX: 4800
+- MUSICGEN_SMALL: 1024
+- MUSICGEN_MEDIUM: 1536
+- MUSICGEN_LARGE: 2048
+- MUSICGEN_MELODY_LARGE: 2048
+- SPECTEMP(avgpool): 23421
+
+
+1-6. layer별 shape는 어떻게 보나?
+- layer 파일 위치 예시
+  - /home/hjkim/selective_auditory/foundation_test/outputs/<model>/layers/layer_XX/combined_representations.npz
+- 각 layer npz 내부 representations shape
+  - [165, layer_dim]
+- layer_dim은 모델 구조에 따라 다름
+  - 예: CLAP encoder 96->192->384->768->768
+  - 예: MERT는 대부분 layer마다 1024
+  - 예: Jukebox는 layer 1..72 모두 4800
+
+
+1-7. Embedding pipeline 순서도(함수 기준)
+- (선택) 임베딩 생성 포함 전체
+  1) pipeline.py: run_single_model_analysis()
+  2) embeddings.py: ensure_model_embeddings()
+  3) 외부 추출 스크립트 실행(extract_*.py)
+  4) npz/h5 저장
+  5) embeddings.py: load_model_embedding()
+  6) 분석 단계로 전달
+
+- 임베딩 로드만 할 때
+  1) pipeline.py: run_single_model_analysis()
+  2) embeddings.py: load_model_embedding()
+  3) 반환: EmbeddingBundle(matrix=[165, D], metadata, model info)
+
+
+============================================================
+2) Alignment 계산 파이프라인 (regression + RSA)
+============================================================
+
+2-1. 어떤 데이터를 불러오나?
+- fMRI voxel 데이터 로드 함수
+  - ./natural_sound_align/data.py: load_brain_voxel_data(dataset_name, require_complete_repetitions=True)
+- 반환 핵심
+  - responses: [stimuli, voxels, repetitions]
+  - voxel_ids
+  - voxel_metadata (subj_idx 포함)
+  - metadata (stimulus table)
+
+데이터셋별 shape(현재 캐시 기준)
+- NH2015: responses 대략 [165, 7694, 3]
+- B2021: responses 대략 [165, 26792, 3]
+
+설명
+- NH2015는 n_reps==3 voxel만 사용(complete repetition 필터)
+- B2021은 코드에서 앞 165 stimulus 사용
+
+2-1-B. B2021 데이터는 정확히 어떻게 불러오나? (상세)
+- 시작 함수
+  - ./natural_sound_align/data.py: load_brain_voxel_data(dataset_name='B2021', ...)
+
+- 1) dataset 이름 정규화
+  - normalize_dataset_name('B2021') -> 'B2021'
+
+- 2) stimulus metadata 생성
+  - 호출: load_tuckute_stimulus_metadata('B2021')
+  - 실제 원본 파일(압축 tar 내부)
+    - data/neural/B2021/stim_info_v4.mat
+    - data/stimuli/df_stimuli_meta.pkl
+  - 동작
+    - stim_info_v4.mat에서 stim_names를 읽고 앞 165개만 사용
+    - 각 stim_name에 대해 category_label을 df_stimuli_meta.pkl에서 매핑
+    - wav_path는 로컬 경로 ./dataset/norman2015/stimuli/wav/<stim_name>.wav 로 연결
+  - 결과 metadata shape
+    - 대략 [165, 4+] (stimulus_index, stim_name, category_label, wav_path)
+
+- 3) voxel 반응/메타 로드
+  - 원본 tar 파일 경로
+    - ./dataset/tuckute2023/tuckute2023_data.tar
+  - tar member
+    - data/neural/B2021/voxel_features_array.npy
+    - data/neural/B2021/voxel_features_meta.npy
+    - data/neural/B2021/df_roi_meta.pkl
+  - 코드 동작
+    - responses = voxel_features_array.npy 를 float64로 로드한 뒤 [:165, :, :] 슬라이싱
+      (즉 stimulus 축을 165개로 제한)
+    - voxel_ids = voxel_features_meta.npy 로드
+    - voxel_metadata = df_roi_meta.pkl 로드 후 reset_index(drop=True)
+    - valid_voxel_mask = np.ones(n_voxels, dtype=bool) (B2021은 NH2015처럼 n_reps==3 필터를 적용하지 않음)
+
+- 4) 최종 반환 Bundle
+  - BrainDataBundle(
+      dataset_name='B2021',
+      responses=[165, V, 3],
+      metadata=stimulus table,
+      voxel_ids=[V],
+      repetition_labels=('rep_0','rep_1','rep_2'),
+      valid_voxel_mask=[V],
+      voxel_metadata=[V, ...]
+    )
+  - 현재 캐시 기준 V=26792
+
+- 5) 이후 alignment로 전달되는 순서 정렬 포인트
+  - embedding은 load_model_embedding()에서 B2021 metadata 순서로 재정렬됨
+  - brain responses도 B2021 metadata 기준 165 stimulus를 사용하므로,
+    최종적으로 X(embedding)와 Y(brain)가 동일 stimulus 순서에서 맞춰짐
+
+
+2-2. regression 계산 방식
+- 엔트리 함수
+  - ./natural_sound_align/regression.py: run_noise_corrected_regression(source_features, voxel_data, voxel_ids)
+- 입력 shape
+  - source_features: [165, D]
+  - voxel_data: [165, V, 3]
+- split 생성
+  - make_splits(n_splits=10, n_train=83, n_test=82, seed=0)
+  - 각 split마다 train/test 마스크 생성
+
+중요: train/valid/test 질문에 대한 정확한 코드 답변
+- 이 코드에는 별도의 "valid" 집합이 없습니다.
+- 외부 split은 train(83) / test(82) 2-way입니다.
+- 대신 train 내부에서 RidgeCV가 alpha를 선택할 때 내부 CV(LOOCV 계열)를 사용합니다.
+  - 함수: _ridge_loocv_predictions(...)
+  - 모델: sklearn.linear_model.RidgeCV(alpha_per_target=True)
+
+회귀 상세 단계
+1) mean target 구성
+- mean_targets = voxel_data.mean(axis=2) -> [165, V]
+
+2) split별 ridge 적합
+- x_train: [83, D], x_test: [82, D]
+- y_train(mean): [83, V]
+- voxel별 alpha 선택 + 예측
+
+3) 성능 계산
+- train R^2: split_train_r2[:, split]
+- test R^2: split_r2[:, split]
+- shape
+  - split_r2: [V, 10]
+  - split_train_r2: [V, 10]
+  - split_alpha: [V, 10]
+
+4) noise correction
+- 각 repetition(0,1,2)에 대해 별도 예측 수행
+- 관측 반복쌍 상관/예측 반복쌍 상관의 median 기반으로 rv, rv_hat 계산
+- corrected = r2_mean / (rv * rv_hat)
+- 음수 방지 clip(0 이상)
+- 결과: split_corrected_r2 [V, 10]
+
+요약/저장
+- voxelwise csv: regression_voxelwise.csv
+- split metrics npz: regression_split_metrics.npz
+- summary json: regression_summary.json
+
+
+2-3. subject aggregation(CV10)과 random seed
+- 함수
+  - aggregate_subject_cv_splits(split_corrected_r2, voxel_metadata, nit=10, collapse_over_splits='median')
+- 입력
+  - split_corrected_r2: [V, 10]
+  - voxel_metadata['subj_idx'] 필요
+
+알고리즘
+- iteration 0..9에 대해 np.random.seed(iteration)
+- 각 voxel에서 10 split 중 절반(5개)만 남기고 절반 NaN 처리
+- 남은 split의 median(또는 mean)으로 voxel 값 축약
+- subj_idx별 median 집계
+- iteration 평균/표준편차/SEM 계산
+
+출력
+- subject_scores: [n_subjects, ...]
+- iteration_scores: [n_subjects * nit, ...]
+- pipeline.py에서는 value_column='median_r2_test_c'로 사용
+
+seed 사용 정리
+- 회귀 split seed: 0 (make_splits)
+- subject aggregation: iteration마다 seed=iteration(0..9)
+
+
+2-4. RSA 계산 방식
+- 엔트리 함수
+  - ./natural_sound_align/rsa.py: run_rsa(model_features, brain_voxel_data, metadata, voxel_metadata, ...)
+- 입력 shape
+  - model_features: [165, D]
+  - brain_voxel_data: [165, V, 3]
+
+주요 옵션(현재 pipeline 기본)
+- pipeline.py 상수
+  - DEFAULT_RSA_MEAN_SUBTRACT = True
+  - DEFAULT_RSA_WITH_STD = True
+- 즉 StandardScaler(mean 제거 + std 스케일링)를 사용
+
+split
+- _train_test_splits(n_splits=10, n_train=83, n_test=82, random_seed=0)
+- 회귀와 동일한 83/82 구조
+
+RSA 계산 단계
+1) (기본) category 순서로 재정렬
+- category_sort_index(metadata) 사용
+
+2) 모델 RDM 유사 정보
+- 전체 데이터 model corr matrix: [165, 165]
+- split test 구간 model corr도 계산
+
+3) participant별 neural corr
+- voxel_metadata['subj_idx']로 participant 분할
+- participant_data: [165, V_subj, 3]
+- repetition 평균 후 corr matrix [165,165]
+
+4) split별 model-vs-human Spearman
+- split마다 test subset(82개)에 대해
+  - model corr: [82,82]
+  - participant corr: [82,82]
+- 상삼각 벡터끼리 spearmanr
+- split_scores shape: [n_participants, 10]
+
+5) participant 최종 점수
+- participant_scores = median(split_scores, axis=1)
+- scores_by_repetition 이름이지만 실제로는 participant별 점수 벡터
+
+6) leave-one-out neural ceiling
+- 같은 split에서 자기 participant를 제외한 평균 neural corr와 Spearman
+- leave_one_out_neural_scores: [n_participants, 10]
+
+요약/저장
+- summary json: rsa_summary.json
+- metrics npz: rsa_metrics.npz
+  - scores_by_repetition
+  - model_correlation_matrix
+  - human_correlation_matrices
+  - mean_human_correlation_matrix
+  - participant_ids
+  - split_scores
+  - leave_one_out_neural_scores
+
+seed 사용 정리
+- RSA split random_seed: 0
+
+
+2-5. alignment 파이프라인 순서도(함수 기준)
+- pipeline.py: run_single_model_analysis()
+  1) embeddings.py: load_model_embedding() -> X=[165,D]
+  2) data.py: load_brain_voxel_data() -> Y=[165,V,3]
+  3) regression.py: run_noise_corrected_regression(X,Y)
+  4) regression.py: aggregate_subject_cv_splits(...)
+  5) regression.py: summarize_* / to_frame
+  6) rsa.py: run_rsa(X,Y,...)
+  7) rsa.py: summarize_rsa_result
+  8) csv/json/npz 저장
+
+
+============================================================
+3) 파일 산출물 구조(결과 확인용)
+============================================================
+- 루트
+  - ./natural_sound_align/embeddings/<dataset>/<model>/<representation>/
+- 예시
+  - regression_voxelwise.csv
+  - regression_subject_cv10.csv
+  - regression_subject_cv10_stats.csv
+  - regression_summary.json
+  - regression_split_metrics.npz
+  - rsa_summary.json
+  - rsa_metrics.npz
+
+representation 규칙
+- foundation 모델
+  - final 또는 layer_XX
+- SPECTEMP
+  - avgpool
+
+
+============================================================
+4) 초보자가 많이 헷갈리는 포인트
+============================================================
+- (중요) train/valid/test가 아니라 train/test + train 내부 RidgeCV 입니다.
+- embedding은 모델마다 "어느 텐서를 final로 쓰는지"가 다릅니다.
+  - CLAP 계열 분석은 audio_embedding이 아니라 encoder_representations 사용
+  - MusicGen은 decoder hidden state 평균
+  - Jukebox final은 사실상 layer_72와 동일
+- load_model_embedding()에서 stimulus 순서를 dataset 기준으로 재정렬하므로,
+  npz 원본 row 순서와 분석 입력 row 순서가 다를 수 있습니다(의도된 동작).
+
+
+============================================================
+5) 코드 탐색 시작점(추천 순서)
+============================================================
+1. ./natural_sound_align/pipeline.py
+2. ./natural_sound_align/embeddings.py
+3. ./natural_sound_align/data.py
+4. ./natural_sound_align/regression.py
+5. ./natural_sound_align/rsa.py
+6. ./natural_sound_align/extract_jukebox_embeddings.py
+7. /home/hjkim/selective_auditory/foundation_test/scripts/extract_clap_embeddings.py
+8. /home/hjkim/selective_auditory/foundation_test/scripts/extract_foundation_model_embeddings.py
+9. /home/hjkim/selective_auditory/foundation_test/scripts/extract_musicgen_decoder_embeddings.py
+
+
+끝.

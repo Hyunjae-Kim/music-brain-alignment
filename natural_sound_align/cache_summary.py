@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from .data import PACKAGE_ROOT, load_tuckute_stimulus_metadata, normalize_dataset_name
-from .embeddings import available_layer_indices
+from .embeddings import available_layer_indices, final_representation_layer_depth
 from .pipeline import DEFAULT_MODELS, DEFAULT_OUTPUT_ROOT, run_all_models, run_single_model_analysis
 
 
@@ -23,6 +23,7 @@ FOUNDATION_MODELS = (
     "MERT",
     "MERT95",
     "WAV2VEC2",
+    "JUKEBOX",
     "MUSICGEN_SMALL",
     "MUSICGEN_MEDIUM",
     "MUSICGEN_LARGE",
@@ -73,10 +74,7 @@ def _load_json(path: Path) -> dict[str, object]:
 
 
 def _final_layer_depth(model_name: str) -> int:
-    available_layers = available_layer_indices(model_name)
-    if not available_layers:
-        return 0
-    return max(available_layers) + 1
+    return final_representation_layer_depth(model_name)
 
 
 def _parse_representation_metadata(model_name: str, representation_name: str) -> tuple[int | None, int]:

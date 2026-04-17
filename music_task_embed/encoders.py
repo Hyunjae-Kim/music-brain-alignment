@@ -32,6 +32,7 @@ DEFAULT_MULAN_MODEL_ID = "OpenMuQ/MuQ-MuLan-large"
 DEFAULT_MERT_MODEL_ID = "m-a-p/MERT-v1-330M"
 DEFAULT_MERT95_MODEL_ID = "m-a-p/MERT-v1-95M"
 DEFAULT_WAV2VEC2_MODEL_ID = "facebook/wav2vec2-base-960h"
+DEFAULT_JUKEBOX_MODEL_ID = "openai/jukebox-5b-top-prior"
 DEFAULT_MUSICGEN_SMALL_MODEL_ID = "facebook/musicgen-small"
 DEFAULT_MUSICGEN_MEDIUM_MODEL_ID = "facebook/musicgen-medium"
 DEFAULT_MUSICGEN_LARGE_MODEL_ID = "facebook/musicgen-large"
@@ -45,6 +46,7 @@ SUPPORTED_MODEL_NAMES = (
     "mert",
     "mert95",
     "wav2vec2",
+    "jukebox",
     "musicgen_small",
     "musicgen_medium",
     "musicgen_large",
@@ -733,6 +735,142 @@ class Wav2Vec2Extractor:
         return names
 
 
+class JukeboxExtractor:
+    def __init__(
+        self,
+        *,
+        model_id: str = DEFAULT_JUKEBOX_MODEL_ID,
+        device: torch.device,
+        cache_dir: str | None = None,
+        local_files_only: bool = False,
+        clip_duration: float = 25.0,
+    ) -> None:
+        del local_files_only  # jukemirlib manages local checkpoint caching internally
+        self.model_name = "jukebox"
+        self.model_id = model_id
+        self.device = device
+        self.cache_dir = cache_dir
+        self.clip_duration = float(clip_duration)
+        self.sample_rate = 44_100
+        self.hidden_state_count = 72
+        self.layer_indices = list(range(1, self.hidden_state_count + 1))
+        self._backend = None
+
+    @staticmethod
+    def _pool_representation(array: np.ndarray) -> np.ndarray:
+        pooled = np.asarray(array, dtype=np.float32)
+        if pooled.ndim == 3:
+            pooled = pooled.mean(axis=1)
+        elif pooled.ndim == 2:
+            # Some backends return a single sample as (time, dim); pool time.
+            if pooled.shape[-1] != 4800:
+                raise ValueError(f"Unexpected Jukebox representation shape: {pooled.shape}")
+            pooled = pooled.mean(axis=0, keepdims=True)
+        elif pooled.ndim == 1:
+            pooled = pooled[np.newaxis, :]
+        else:
+            raise ValueError(f"Unexpected Jukebox representation ndim: {pooled.ndim}")
+        return np.asarray(pooled, dtype=np.float32, order="C")
+
+    def _ensure_backend(self):
+        if self._backend is not None:
+            return self._backend
+        try:
+            import jukemirlib
+            from jukemirlib import constants as jukemirlib_constants
+            from jukemirlib import lib as jukemirlib_lib
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "jukemirlib is required for Jukebox extraction. "
+                "Install jukemirlib and the compatible jukebox package first."
+            ) from exc
+
+        setup_kwargs: dict[str, Any] = {"device": str(self.device)}
+        if self.cache_dir is not None:
+            setup_kwargs["cache_dir"] = self.cache_dir
+        vqvae, top_prior = jukemirlib.setup_models(**setup_kwargs)
+        jukemirlib_constants.DEVICE = str(self.device)
+        jukemirlib.DEVICE = str(self.device)
+        jukemirlib.VQVAE = vqvae
+        jukemirlib.TOP_PRIOR = top_prior
+        jukemirlib.x_cond = None
+        jukemirlib.y_cond = None
+        jukemirlib_lib.DEVICE = str(self.device)
+        jukemirlib_lib.VQVAE = vqvae
+        jukemirlib_lib.TOP_PRIOR = top_prior
+        jukemirlib_lib.x_cond = None
+        jukemirlib_lib.y_cond = None
+        self._backend = jukemirlib
+        return self._backend
+
+    def extract(self, audio_paths: list[str], batch_size: int, include_layers: bool = False) -> ExtractorResult:
+        backend = self._ensure_backend()
+        requested_layers = self.layer_indices if include_layers else [self.hidden_state_count]
+        final_rows: list[np.ndarray] = []
+        layer_rows: dict[str, list[np.ndarray]] = {}
+        total_items = len(audio_paths)
+        total_batches = (total_items + batch_size - 1) // batch_size
+        start_time = time.time()
+        if _LOG_EVERY > 0:
+            print(
+                f"[embed] start {self.model_name} device={self.device} "
+                f"items={total_items} batch={batch_size} include_layers={include_layers}",
+                flush=True,
+            )
+
+        for batch_index, start in enumerate(range(0, total_items, batch_size), start=1):
+            batch_paths = audio_paths[start : start + batch_size]
+            batch_audio = [
+                backend.load_audio(path, duration=self.clip_duration)
+                for path in batch_paths
+            ]
+            representations = backend.extract(
+                audio=batch_audio,
+                layers=requested_layers,
+                meanpool=True,
+            )
+
+            final_matrix = self._pool_representation(representations[self.hidden_state_count])
+            final_rows.append(final_matrix)
+
+            if include_layers:
+                for layer_index in requested_layers:
+                    layer_matrix = self._pool_representation(representations[layer_index])
+                    layer_rows.setdefault(f"layer_{layer_index:02d}", []).append(layer_matrix)
+
+            _maybe_log_progress(
+                model_name=self.model_name,
+                device=self.device,
+                batch_index=batch_index,
+                total_batches=total_batches,
+                total_items=total_items,
+                batch_size=batch_size,
+                start_time=start_time,
+            )
+
+        return ExtractorResult(
+            final_name="final",
+            final_matrix=np.concatenate(final_rows, axis=0),
+            layer_matrices={
+                layer_name: np.concatenate(parts, axis=0)
+                for layer_name, parts in layer_rows.items()
+            },
+            metadata={
+                "model_id": self.model_id,
+                "sample_rate": self.sample_rate,
+                "clip_duration_seconds": self.clip_duration,
+                "source_key": "meanpool_top_prior_hidden_state",
+                "top_prior_depth": self.hidden_state_count,
+            },
+        )
+
+    def representation_names(self, include_layers: bool) -> list[str]:
+        names = ["final"]
+        if include_layers:
+            names.extend(f"layer_{layer_index:02d}" for layer_index in self.layer_indices)
+        return names
+
+
 def pool_hidden_state(hidden: torch.Tensor) -> torch.Tensor:
     if hidden.ndim == 3:
         return hidden.mean(dim=1)
@@ -1059,7 +1197,7 @@ def get_extractor(
     cache_dir: str | None = None,
     local_files_only: bool = False,
     clap_variant: str = "audio_embedding",
-) -> ClapExtractor | MulanExtractor | MertExtractor | Wav2Vec2Extractor | MusicGenExtractor:
+) -> ClapExtractor | MulanExtractor | MertExtractor | Wav2Vec2Extractor | JukeboxExtractor | MusicGenExtractor:
     normalized = model_name.strip().lower()
     resolved_device = resolve_device(device)
     if normalized == "clap":
@@ -1108,6 +1246,12 @@ def get_extractor(
         )
     if normalized == "wav2vec2":
         return Wav2Vec2Extractor(
+            device=resolved_device,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+        )
+    if normalized == "jukebox":
+        return JukeboxExtractor(
             device=resolved_device,
             cache_dir=cache_dir,
             local_files_only=local_files_only,

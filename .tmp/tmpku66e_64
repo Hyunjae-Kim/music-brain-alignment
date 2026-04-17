@@ -1,0 +1,23 @@
+set -e
+eval "$(/home/hjkim/miniconda3/bin/conda shell.posix hook)"
+export _CE_M=''
+export _CE_CONDA=''
+PS1='(universal) '
+export PATH='/home/hjkim/.local/bin:/home/hjkim/.codex/tmp/arg0/codex-arg0DF5M3h:/home/hjkim/.vscode-server/cli/servers/Stable-41dd792b5e652393e7787322889ed5fdc58bd75b/server/bin/remote-cli:/home/hjkim/.local/bin:/home/hjkim/miniconda3/envs/universal/bin:/home/hjkim/miniconda3/condabin:/home/hjkim/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/hjkim/.vscode-server/extensions/openai.chatgpt-26.409.20454-linux-x64/bin/linux-x86_64'
+export CONDA_PREFIX='/home/hjkim/miniconda3/envs/universal'
+export CONDA_SHLVL='2'
+export CONDA_DEFAULT_ENV='universal'
+export CONDA_PROMPT_MODIFIER='(universal) '
+export CONDA_PREFIX_1='/home/hjkim/miniconda3'
+export CONDA_EXE='/home/hjkim/miniconda3/bin/conda'
+export _CONDA_EXE='/home/hjkim/miniconda3/bin/conda'
+export CONDA_PYTHON_EXE='/home/hjkim/miniconda3/bin/python'
+export _CONDA_ROOT='/home/hjkim/miniconda3'
+. "/home/hjkim/miniconda3/envs/universal/etc/conda/activate.d/libglib_activate.sh"
+. "/home/hjkim/miniconda3/envs/universal/etc/conda/activate.d/libxml2_activate.sh"
+set +e
+python -m ismir2026.music_task_embed.run_extraction_job --output-root /home/hjkim/selective_auditory/ismir2026/music_task_embed/embeddings --device cuda:0 --cache-dir /tmp/jukemirlib_cache --batch-size 4 --include-layers --model-name jukebox --manifest-dir /home/hjkim/selective_auditory/ismir2026/music_task_embed/manifests/giantsteps/key_detection
+_CONDA_EXE_RC=$?
+. "/home/hjkim/miniconda3/envs/universal/etc/conda/deactivate.d/libxml2_deactivate.sh"
+. "/home/hjkim/miniconda3/envs/universal/etc/conda/deactivate.d/libglib_deactivate.sh"
+exit $_CONDA_EXE_RC

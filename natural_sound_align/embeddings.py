@@ -91,6 +91,15 @@ MODEL_SPECS = {
         "model_name_arg": "wav2vec2",
         "hf_model_id": "facebook/wav2vec2-base-960h",
     },
+    "JUKEBOX": {
+        "final_path": FOUNDATION_OUTPUTS / "jukebox" / "combined_representations.npz",
+        "layers_index": FOUNDATION_OUTPUTS / "jukebox" / "layers" / "index.json",
+        "matrix_key": "representations",
+        "script": PROJECT_ROOT / "natural_sound_align" / "extract_jukebox_embeddings.py",
+        "output_dir": FOUNDATION_OUTPUTS / "jukebox",
+        "hf_model_id": "jukemir/representations_jukebox",
+        "final_matches_last_layer": True,
+    },
     "MUSICGEN_SMALL": {
         "final_path": FOUNDATION_OUTPUTS / "musicgen_small" / "combined_representations.npz",
         "layers_index": FOUNDATION_OUTPUTS / "musicgen_small" / "layers" / "index.json",
@@ -173,6 +182,17 @@ def available_layer_indices(model_name: str) -> list[int]:
         return []
     payload = json.loads(index_path.read_text())
     return [int(layer["layer_index"]) for layer in payload.get("layers", [])]
+
+
+def final_representation_layer_depth(model_name: str) -> int:
+    normalized = _normalize_model_name(model_name)
+    layers = available_layer_indices(normalized)
+    if not layers:
+        return 0
+    spec = MODEL_SPECS[normalized]
+    if bool(spec.get("final_matches_last_layer")):
+        return max(layers)
+    return max(layers) + 1
 
 
 def _load_npz_metadata(npz_file: np.lib.npyio.NpzFile) -> pd.DataFrame:

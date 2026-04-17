@@ -29,6 +29,7 @@ DEFAULT_MODELS = (
     "MERT",
     "MERT95",
     "WAV2VEC2",
+    "JUKEBOX",
     "MUSICGEN_SMALL",
     "MUSICGEN_MEDIUM",
     "MUSICGEN_LARGE",
